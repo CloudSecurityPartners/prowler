@@ -114,45 +114,6 @@ extra73(){
       continue
     fi
 
-    #
-    # Check for public ACL grants
-    #
-    BUCKET_ACL=$($AWSCLI s3api get-bucket-acl $PROFILE_OPT --region $BUCKET_LOCATION --bucket $bucket --output json 2>&1)
-    if [[ $(echo "$BUCKET_ACL" | grep AccessDenied) ]]; then
-      textInfo "$BUCKET_LOCATION: Access Denied Trying to Get Bucket Acl for $bucket" "$BUCKET_LOCATION" "$bucket"
-      continue
-    fi
-
-    ALLUSERS_ACL=$(echo "$BUCKET_ACL" | jq '.Grants[]|select(.Grantee.URI != null)|select(.Grantee.URI | endswith("/AllUsers"))')
-    if [[ $ALLUSERS_ACL != "" ]]; then
-      textFail "$BUCKET_LOCATION: $bucket bucket is Public!" "$BUCKET_LOCATION" "$bucket"
-      continue
-    fi
-
-    AUTHENTICATEDUSERS_ACL=$(echo "$BUCKET_ACL" | jq '.Grants[]|select(.Grantee.URI != null)|select(.Grantee.URI | endswith("/AuthenticatedUsers"))')
-    if [[ $AUTHENTICATEDUSERS_ACL != "" ]]; then
-      textFail "$BUCKET_LOCATION: $bucket bucket is Public!" "$BUCKET_LOCATION" "$bucket"
-      continue
-    fi
-
-    #
-    # Check for public access in policy
-    #
-    BUCKET_POLICY_STATUS=$($AWSCLI s3api get-bucket-policy-status $PROFILE_OPT --region $BUCKET_LOCATION --bucket $bucket --query PolicyStatus.IsPublic --output text 2>&1)
-    if [[ $(echo "$BUCKET_POLICY_STATUS" | grep AccessDenied) ]]; then
-      textInfo "$BUCKET_LOCATION: Access Denied Trying to Get Bucket Policy Status for $bucket" "$BUCKET_LOCATION" "$bucket"
-      continue
-    fi
-    if [[ $(echo "$BUCKET_POLICY_STATUS" | grep NoSuchBucketPolicy) ]]; then
-      BUCKET_POLICY_STATUS="False"
-    fi
-
-    if [[ $BUCKET_POLICY_STATUS != "" && $BUCKET_POLICY_STATUS != "False" ]]; then
-      textFail "$BUCKET_LOCATION: $bucket bucket is Public!" "$BUCKET_LOCATION" "$bucket"
-      continue
-    fi
-
-    textPass "$BUCKET_LOCATION: $bucket bucket is not Public" "$BUCKET_LOCATION" "$bucket"
-
+    textFail "$BUCKET_LOCATION: $bucket bucket does not have Block Public Access enabled" "$BUCKET_LOCATION" "$bucket"
   done
 }
