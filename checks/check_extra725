@@ -37,16 +37,30 @@ extra725(){
     textInfo "$REGION: Access Denied trying to describe trails"
     return
   fi
+
   if [[ $LIST_OF_BUCKETS ]]; then
     for bucketName in $LIST_OF_BUCKETS; do
       if [[ $LIST_OF_TRAILS ]]; then
         BUCKET_ENABLED_TRAILS=()
 
         for trail in $LIST_OF_TRAILS; do
+          # Check if data events are enabled
+          ADVANCED_DATA_EVENTS_ENABLED=$($AWSCLI cloudtrail get-event-selectors --region $REGION $PROFILE_OPT --trail-name $trail | jq '.AdvancedEventSelectors[].FieldSelectors[] | select(.Field == "resources.type") | select(.Field == "resources.type") | .Equals | select(.[] == "AWS::S3::Object") | select(length > 0)' 2>&1)
+
+          if [ $? -eq 0 ]; then
+            if [[ ! -z "$ADVANCED_DATA_EVENTS_ENABLED" ]]; then
+              textPass "$REGION: Trail $trail has global data logging enabled" "$REGION" "$bucketName"
+              return
+            fi
+          fi
+
+
+
           BUCKET_ENABLED_IN_TRAIL=$($AWSCLI cloudtrail get-event-selectors --region $REGION $PROFILE_OPT --trail-name $trail --query "EventSelectors[*].DataResources[?Type == \`AWS::S3::Object\`].Values" --output text |xargs -n1| grep -E "^arn:${AWS_PARTITION}:s3:::$bucketName/\S*$|^arn:${AWS_PARTITION}:s3$|^arn:${AWS_PARTITION}:s3:::$")
           if [[ $BUCKET_ENABLED_IN_TRAIL ]]; then
             BUCKET_ENABLED_TRAILS+=($trail)
           fi
+        
         done
 
         if [[ ${#BUCKET_ENABLED_TRAILS[@]} -gt 0 ]]; then
